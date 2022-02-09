@@ -1,6 +1,6 @@
 #!/usr/bin/Rscript
-## Author: Taylor Falk
-## tfalk@bu.edu
+## Author: Mano Ranaweera 
+## mranawee@bu.edu
 ## BU BF591
 ## Assignment Week 2
 
@@ -12,14 +12,18 @@
 # https://bioconductor.org/install/
 
 if (!require("BiocManager", quietly = TRUE)){
-
+  install.packages("BiocManager")
 }
+BiocManager::install(version = "3.14")
+
+  
 if (!require("biomaRt", quietly = TRUE)){
-
+  install.packages("biomaRt", quietly = TRUE)
 }
+biomaRt::install()
 # load tidyverse and your new bioconductor package
-library()
-library()
+library(tidyverse)
+library(BiocManager)
 
 #### Loading and processing data ####
 #' Load Expression Data
@@ -36,8 +40,17 @@ library()
 #' @examples 
 #' `data <- load_expression('/project/bf528/project_1/data/example_intensity_data.csv')`
 load_expression <- function(filepath) {
-  return(NULL)
+  read_data <- read.table(filepath, sep = ' ', header = TRUE)
+  subject_id <- colnames(read_data)
+  transposed <- t(read_data) #transposing
+  colnames(transposed) <- transposed[1,]
+  trans_tibble <- as_tibble(transposed) #make it a tibble
+  final_data <- cbind(subject_id[-1], mutate_all(trans_tibble[-1,], as.numeric))
+  return (final_data)
 }
+data <- load_expression('data/example_intensity_data/example_intensity_data.csv')
+tib_data <- as_tibble(data)
+knitr::kable(head(tib_data[c(1:5)]))
 
 #' Filter 15% of the gene expression values.
 #'
