@@ -1,0 +1,103 @@
+---
+title: "Assignment 2 Report"
+author: ""
+date: "1/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Please read this brief introduction to R Markdown, and complete the second half using your `main.R` functions.**
+
+# R Markdown
+R Markdown, `.Rmd` files, are a type of markdown files that can execute R code in an R environment. Markdown is an open source language used for easily creating documents such as web pages and PDFs. Markdown and R Markdown can be used to procedurally generate documents and reports, which have a wide number of use-cases across bioinformatics. Not only can you save time by creating code to automatically draft documents, you can also include detailed instructions and information alongside your code.
+
+## knitr
+`knitr` is simply the package R uses to convert the R Markdown into the appropriate output (HTML, PDF, or Word). While there is a deep level of customization available, most users can comfortably create beautiful documents with the default parameters. In order to compile your markdown, in RStudio you can select the `Knit` button below the open file button.
+
+---
+
+## Markdown Basics
+The raw markdown, which you may or may not be looking at, is styled very basically. The largest titles start with one octothorpe `#`. The more `#`'s added, the smaller a title or header becomes. These headings can be used to complete a table of contents, in some situations (like the class website).
+
+# Biggest  
+## 2nd Biggest  
+### so on  
+#### and so forth  
+##### until you have  
+###### six octothorpes  
+####### then nothing happens.
+
+Importantly, two spaces (`  `) can be included after a line of text to start a new line.
+
+Markdown can be styled a few different ways:  
+`_italics_` -> _italics_  
+`**bold**` -> **bold**  
+`` `monospace` `` -> `monospace`, good for code  
+
+A good cheat sheet is the [Markdown Guide Cheat Sheet](https://www.markdownguide.org/cheat-sheet)
+
+---
+
+## R Code in Markdown
+The really vital part of R Markdown is the inclusion of code snippets you can place into the document, which will run and print out to users. In this snippet I create a function that says hello and that text is printed inside the document.
+```{r}
+say_hi <- function() {
+  return("Hello world.")
+}
+print(say_hi())
+```
+
+The syntax of the **snippet* is simple, with three back ticks ` ``` ` indicating the start and end of the snippet, and a lower case `r` in curly braces `{}` to indicate what language is used: `{r}` indicates R, `{python}` indicates Python. R Markdown does not support every language, but there are use cases where one document running both R and Python code can prove extremely useful and concise. There is also a button in RStudio to insert a snippet, it is a small green `+C` in the top right of the editor.
+
+```{python}
+import datetime
+print(f'Wishing you a wonderful hello from Python at {datetime.datetime.now()}')
+```
+I can also test my code in RStudio without having to knit the entire document by pressing the green "Play" arrow on the snippet I am interested in.
+
+Finally, R Markdown scripts can `source()` other `.R` scripts and use them in their execution environment. This mean I can define a function in my `main.R` script and use it in my R Markdown snippets. Note that the converse is true, using `knitr::purl()`, and the code established in an R Markdown can be sourced, and _tested_, using an normal `.R` script.
+
+Also note that the environment is carried from one snippet to another, so if I define a function or load a file in one snippet I can use those objects in later snippets. 
+
+```{r}
+message <- 'The last example...for now.'
+```
+  
+```{r}
+print(paste(message, 'But there\'s always room for more.'))
+```
+
+
+# Assignment
+Using what you know from this document and the `main.R` script, use the functions from `main.R` to draw a box plot of  expression levels. Use this R Markdown document to describe your code as you are using it in this document, as done above. Take time to enhance your ggplot function from the `main.R` script with high quality visual aesthetics. Do not use default ggplot colors.  
+
+Our first step is to source our `main.R` script to load our completed functions, and then load the data from the sample csv. This filepath should work if you are on the SCC, but a copy is also located in this repository's `data/` directory. Some functions in R can manage zipped data, but you may need to unzip (`unzip example_data.zip` on command line) the file before loading it into R.
+```{r Source and load data}
+# use source to load your functions from main.R into this document.
+source("main.R")
+expr <- load_expression("/project/bf528/project_1/data/example_intensity_data.csv")
+head(expr)
+```
+
+Next, we apply the `filter_15()` function to eliminate some rows from out data. The rows remaining will have at least 15% of the expressions values above log<sub>2</sub>(15). We pass this smaller set of rows to `affy_to_hgnc()` which will find the HGNC gene ID based on the the affymetrix probe ID; we store those results in a separate data frame.
+``` {r Filter samples and find gene names}
+filter_15(expr) %>%
+affy_to_hgnc() -> sample_names
+head(sample_names)
+```
+
+Finally, we use a pseudo-random selection of 8 "good" and 8 "bad" genes to compare expression levels (I just picked which is which on a whim, apologies if I called your favorite gene a bad gene). We use `reduce_data()` to create a tibble of **only** the good and bad genes. Note that some genes may correspond to multiple probes, as in you could have multiple rows for gene gene. Finally, we create a box plot and add some nice visual bells and whistles using `plot_ggplot()`. See how well you can recreate it! The colors I chose were `c("#DF2935", "#71B48D")`.
+``` {r Select genes and plot}
+goodGenes <- c("PKD1", "NOS3", "AGTR1", "COL4A5", "ECE1", "MEN1", "OLR1", "F7")
+badGenes <- c("TP53", "EGFR", "BRAF", "KRAS", "PIK3CA", "ERBB2", "MAPK1", "NRAS")
+plot_tibble <- reduce_data(expr_tibble = expr, 
+                           names_ids = sample_names,
+                           goodGenes, 
+                           badGenes)
+head(plot_tibble)
+plot_ggplot(plot_tibble)
+```
+
