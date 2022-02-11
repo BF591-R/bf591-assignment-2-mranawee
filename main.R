@@ -20,7 +20,7 @@ BiocManager::install(version = "3.14")
 if (!require("biomaRt", quietly = TRUE)){
   install.packages("biomaRt", quietly = TRUE)
 }
-biomaRt::install()
+BiocManager::install("biomaRt")
 # load tidyverse and your new bioconductor package
 library(tidyverse)
 library(BiocManager)
@@ -37,10 +37,21 @@ library(BiocManager)
 #' adjust the CSV file being loaded into this assignment so that it can be formed into a 
 #' tibble correctly.
 #'
+#'Adam's example
+#'readr::read_delim(filename, delim= ' ')   #read_delim assumes there is a header row
+#'    expr_mat <- tibble::as_tibble(t(read.table(
+#'       filename,
+#'       header = TRUE,
+#'       sep = " "
+#'       )),
+#'       
+#'
+#'
+#'
 #' @examples 
 #' `data <- load_expression('/project/bf528/project_1/data/example_intensity_data.csv')`
 load_expression <- function(filepath) {
-  read_data <- read.table(filepath, sep = ' ', header = TRUE)
+  read_data <- read.table(filepath, sep = ' ', header = TRUE) 
   subject_id <- colnames(read_data)
   transposed <- t(read_data) #transposing
   colnames(transposed) <- transposed[1,]
@@ -50,8 +61,7 @@ load_expression <- function(filepath) {
 }
 data <- load_expression('data/example_intensity_data/example_intensity_data.csv')
 tib_data <- as_tibble(data)
-knitr::kable(head(tib_data[c(1:5)]))
-
+head(tib_data)
 #' Filter 15% of the gene expression values.
 #'
 #' @param tibble A tibble of expression values, rows by probe and columns by sample.
@@ -67,10 +77,16 @@ knitr::kable(head(tib_data[c(1:5)]))
 #' `> str(samples)`
 #' `tibble [40,158 × 1] (S3: tbl_df/tbl/data.frame)`
 #' `$ probeids: chr [1:40158] "1007_s_at" "1053_at" "117_at" "121_at" ...`
+#' 
+#' 
+#' only rows with 15% expression values above log_2(15)
 filter_15 <- function(tibble){
-  return()
+  new_tibble <- tibble %>% filter_all(all_vars(.>(log2(15))))
+    
+  return(new_tibble())
 }
 
+filter_15(tib_data)
 #### Gene name conversion ####
 
 #' Convert affymetrix array names into hgnc_symbol IDs using biomaRt. Inputs and 
