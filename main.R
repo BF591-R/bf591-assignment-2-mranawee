@@ -20,11 +20,15 @@ BiocManager::install(version = "3.14")
 if (!require("biomaRt", quietly = TRUE)){
   install.packages("biomaRt", quietly = TRUE)
 }
-BiocManager::install("biomaRt")
+BiocManager::install("biomaRt", force = TRUE)
+
+install.packages('reshape2')
 # load tidyverse and your new bioconductor package
 library(tidyverse)
 library(BiocManager)
-
+library(ggplot2)
+library(dplyr)
+library(reshape2)
 #### Loading and processing data ####
 #' Load Expression Data
 #'
@@ -51,17 +55,12 @@ library(BiocManager)
 #' @examples 
 #' `data <- load_expression('/project/bf528/project_1/data/example_intensity_data.csv')`
 load_expression <- function(filepath) {
-  read_data <- read.table(filepath, sep = ' ', header = TRUE) 
-  subject_id <- colnames(read_data)
-  transposed <- t(read_data) #transposing
-  colnames(transposed) <- transposed[1,]
-  trans_tibble <- as_tibble(transposed) #make it a tibble
-  final_data <- cbind(subject_id[-1], mutate_all(trans_tibble[-1,], as.numeric))
-  return (final_data)
+  read_data <- read.table('data/example_intensity_data/example_intensity_data.csv', sep = ' ', header = TRUE) 
+  tib_data <- as_tibble(read_data)
+  return (tib_data)
 }
-data <- load_expression('data/example_intensity_data/example_intensity_data.csv')
-tib_data <- as_tibble(data)
-head(tib_data)
+expr <- load_expression('data/example_intensity_data/example_intensity_data.csv')
+head(expr)
 #' Filter 15% of the gene expression values.
 #'
 #' @param tibble A tibble of expression values, rows by probe and columns by sample.
@@ -81,12 +80,13 @@ head(tib_data)
 #' 
 #' only rows with 15% expression values above log_2(15)
 filter_15 <- function(tibble){
-  new_tibble <- tibble %>% filter_all(all_vars(.>(log2(15))))
-    
-  return(new_tibble())
+  tibble$sig_vals <- rowSums(tibble[-1] > (log2(15))) #values per row > log2(15)...counts of this condition per row recorded in extra column "sig_vals"
+  filtered_tib <- subset(tibble, ((sig_vals / length(select_if(tibble, is.numeric))) >= 0.15)) #at least 15 % of values meet threshold per row
+  return(filtered_tib[,1])
 }
-
-filter_15(tib_data)
+#length(select_if(expr, is.numeric))
+filtered <- filter_15(expr) #actual filtered data
+head(filtered)
 #### Gene name conversion ####
 
 #' Convert affymetrix array names into hgnc_symbol IDs using biomaRt. Inputs and 
@@ -111,10 +111,30 @@ filter_15(tib_data)
 #' `3        1553551_s_at       MT-TM`
 #' `4        1553551_s_at      MT-ND2`
 #' `5           202860_at     DENND4B`
+#' 
+#' find HGNC gene ID based on our probe ID
 affy_to_hgnc <- function(affy_vector) {
-  return()
+  affyID <- pull(affy_vector['probeids'])
+  ensembl <- useEnsembl(biomart="ensembl", dataset='hsapiens_gene_ensembl')
+  gene_map <- as_tibble(
+    getBM(
+      attributes=c('affy_hg_u133_plus_2', 'hgnc_symbol'),
+      filters = 'affy_hg_u133_plus_2',
+      values = affyID,
+      mart= ensembl
+    )
+  )
+  return(gene_map)
 }
 
+#affy_vector <- filtered$probeids
+#str_probe <- toString(affy_vector) #param
+vector <- unlist(filtered$probeids)
+sample_names <- affy_to_hgnc(filtered)
+sample_names_test <- affy_to_hgnc(filtered)
+
+#sample_names2 <- sample_names %>% drop_na()
+head(sample_names_test)
 #### ggplot ####
 
 #' Reduce a tibble of expression data to only the rows in good_genes or bad_genes.
@@ -146,9 +166,56 @@ affy_to_hgnc <- function(affy_vector) {
 #' `  <chr>       <chr>   <chr>       <dbl>     ...`
 #' `1 202860_at   DENND4B good        7.16      ...`
 #' `2 204340_at   TMEM187 good        6.40      ...`
-reduce_data <- function(expr_tibble, names_ids, good_genes, bad_genes){
-  return()
+
+#good <- 
+
+reduce_data <- function(names_ids, expr_tibble, good_genes, bad_genes){
+  #hgnc_symbols <- names_ids
+  names(names_ids) <- c('probeids', 'hgnc_symbol')
+  reduced_tib <- names_ids %>%
+    filter(hgnc_symbol %in% good_genes | hgnc_symbol %in% bad_genes)
+  #gene_set column
+  reduced_tib <- reduced_tib %>%
+    mutate(gene_set = if_else(hgnc_symbol %in% good_genes, 'good', 'bad'))
+    
+  #if (names_ids$hgnc_symbol == good_genes){
+  #  reduced_tib$gene_set = 'good'
+  #} else {
+  #  reduced_tib$gene_set = 'bad'
+  #}
+  
+  sample_tib <- expr_tibble %>%
+    filter(probeids %in% reduced_tib$probeids)
+  
+  
+  return(as_tibble(merge(reduced_tib, sample_tib)))
+
 }
+
+bad <- c("TP53", "EGFR", "BRAF", "KRAS", "PIK3CA", "ERBB2", "MAPK1", "NRAS")
+good <- c("PKD1", "NOS3", "AGTR1", "COL4A5", "ECE1", "MEN1", "OLR1", "F7")
+
+plot_tibble <- reduce_data(sample_names, expr, good, bad)
+
+head(plot_tibble)
+
+
+#new_expr_tibble <- affy_to_hgnc(expr)
+new_expr_tibble_tib <- merge(sample_names_test, expr)
+
+names(new_expr_tibble_tib) <- c('probeids', 'hgnc_symbol')
+
+new_expr_tibble_tib %>%
+  filter(hgnc_symbol %in% bad | hgnc_symbol %in% good)
+
+
+
+plot_tibble <- reduce_data(expr_tibble = expr,
+                           names_ids = sample_names,
+                           good,
+                           bad)
+
+head(plot_tibble)
 
 #' Plot a boxplot of good and bad genes.
 #'
@@ -163,6 +230,10 @@ reduce_data <- function(expr_tibble, names_ids, good_genes, bad_genes){
 #'
 #' @examples `p <- plot_ggplot(plot_tibble)`
 plot_ggplot <- function(tibble) {
-  return()
+ tibble %>% ggplot(aes(x=hgnc_symbol, y = (GSM972409))) +
+    geom_boxplot() +
+    theme_bw(base_size = 16)
+    
 }
 
+plot_ggplot(plot_tibble)

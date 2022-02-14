@@ -3,7 +3,7 @@ source("main.R")
 library(testthat)
 
 test_that("loading csv works using load_expression()", {
-  result_tib <- load_expression(unzip("data/example_intensity_data.zip"))
+  result_tib <- load_expression(unzip("data/example_intensity_data/example_intensity_data.csv"))
   expect_equal(dim(result_tib), c(54675, 36))
   expect_true(is_tibble(result_tib))
 })
@@ -59,3 +59,4 @@ test_that("plot_ggplot() correctly creates a boxplot from sample data", {
   p <- plot_ggplot(plot_tib)
   expect_equal(class(p$layers[[1]]$geom)[1], "GeomBoxplot")
 })
+
